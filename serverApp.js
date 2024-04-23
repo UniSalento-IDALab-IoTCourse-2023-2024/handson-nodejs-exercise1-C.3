@@ -2,6 +2,9 @@
 var express = require("express");
 // Require the mongodb module
 const { MongoClient } = require('mongodb');
+const WebSocket = require('ws');
+const path = require('path');
+
 //call the top-level express() function exported by the Express module
 var app = express();
 
@@ -20,6 +23,17 @@ app.use(
     })
 )
 app.use(express.json());
+
+
+const wss = new WebSocket.Server({ port: 3001 });
+
+wss.on('connection', function connection(ws) {
+    ws.on('message', function incoming(message) {
+        console.log('received: %s', message);
+    });
+    ws.send('something');
+});
+
 
 //asynchronous method to be executed to write info in the DB
 async function writeToDb(temperature, timestamp, sensor) {
@@ -64,6 +78,15 @@ async function getLastTemperatureFromDB() {
     return JSON.parse(JSON.stringify(filteredDoc));
 }
 
+
+async function pushToWsClient(temperature){
+    wss.clients.forEach(function each(client) {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(temperature);
+        }
+    });
+}
+
 //Routes HTTP POST requests to the specified path with the specified callback functions.
 app.post("/temperature", (req, res, next) => {
     console.log(req.body.temperature);
@@ -76,12 +99,17 @@ app.post("/temperature", (req, res, next) => {
         .catch(console.error)
         .finally(() => client.close());
 
+    pushToWsClient(temperature).catch();
     res.sendStatus(200);
 });
 
 app.get('/dashboard', async (req, res) => {
 
-    let finalTemp = await getLastTemperatureFromDB()
-    res.send('Temperature: ' + finalTemp.value)
-    //res.json(finalTemp.value)
+    /*
+        let finalTemp = await getLastTemperatureFromDB()
+        res.send('Temperature: ' + finalTemp.value)
+        //res.json(finalTemp.value)
+     */
+
+    res.sendFile(path.join(__dirname + '/index.html'));
 })
