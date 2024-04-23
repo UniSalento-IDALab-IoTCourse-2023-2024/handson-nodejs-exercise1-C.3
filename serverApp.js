@@ -56,3 +56,7 @@ app.post("/temperature", (req, res, next) => {
 
     res.sendStatus(200);
 });
+
+app.get('/', (req, res) => {
+    res.send('Hello World!')
+})
